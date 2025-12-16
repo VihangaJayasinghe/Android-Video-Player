@@ -15,50 +15,12 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Add New Video"
+            android:text="Upload Video"
             android:textSize="28sp"
             android:textStyle="bold"
             android:textColor="@color/text_primary"
             android:fontFamily="sans-serif-black"
             android:layout_marginBottom="32dp" />
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="0dp"
-            app:cardBackgroundColor="@color/white"
-            android:layout_marginBottom="24dp">
-
-            <RadioGroup
-                android:id="@+id/sourceTypeRadioGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:checkedButton="@+id/radioLocal"
-                android:padding="8dp">
-
-                <RadioButton
-                    android:id="@+id/radioLocal"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Local File"
-                    android:buttonTint="@color/emerald_primary"
-                    android:textColor="@color/text_primary"
-                    android:paddingStart="8dp" />
-
-                <RadioButton
-                    android:id="@+id/radioOnline"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Online URL"
-                    android:buttonTint="@color/emerald_primary"
-                    android:textColor="@color/text_primary"
-                    android:paddingStart="8dp" />
-            </RadioGroup>
-        </androidx.cardview.widget.CardView>
 
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
@@ -83,76 +45,60 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <LinearLayout
-            android:id="@+id/localFileContainer"
+        <Button
+            android:id="@+id/selectFileButton"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="Select Video File"
+            android:textColor="@color/emerald_primary"
+            android:backgroundTint="@color/white"
+            app:strokeColor="@color/emerald_primary"
+            app:strokeWidth="1dp"
+            app:cornerRadius="12dp"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_marginBottom="12dp"/>
+
+        <TextView
+            android:id="@+id/selectedPathTextView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <Button
-                android:id="@+id/selectFileButton"
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:text="Select Video File"
-                android:textColor="@color/emerald_primary"
-                android:backgroundTint="@color/white"
-                app:strokeColor="@color/emerald_primary"
-                app:strokeWidth="1dp"
-                app:cornerRadius="12dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_marginBottom="12dp"/>
-
-            <TextView
-                android:id="@+id/selectedPathTextView"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="No file selected"
-                android:textColor="@color/text_secondary"
-                android:textSize="14sp"
-                android:gravity="center_horizontal"
-                android:layout_marginBottom="32dp" />
-        </LinearLayout>
+            android:text="No file selected"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:gravity="center_horizontal"
+            android:layout_marginBottom="24dp" />
 
         <LinearLayout
-            android:id="@+id/onlineUrlContainer"
+            android:id="@+id/progressContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="gone">
+            android:visibility="gone"
+            android:layout_marginBottom="24dp">
 
-            <com.google.android.material.textfield.TextInputLayout
+            <TextView
+                android:id="@+id/uploadStatusText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Uploading... 0%"
+                android:textColor="@color/text_secondary"
+                android:layout_marginBottom="8dp"/>
+
+            <ProgressBar
+                android:id="@+id/uploadProgressBar"
+                style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Video URL (e.g., .m3u8, .mp4)"
-                app:boxBackgroundColor="@color/white"
-                app:boxStrokeColor="@color/emerald_primary"
-                app:hintTextColor="@color/emerald_primary"
-                app:boxCornerRadiusTopStart="12dp"
-                app:boxCornerRadiusTopEnd="12dp"
-                app:boxCornerRadiusBottomStart="12dp"
-                app:boxCornerRadiusBottomEnd="12dp"
-                android:layout_marginBottom="32dp">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/urlEditText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="textUri"
-                    android:textColor="@color/text_primary" />
-
-            </com.google.android.material.textfield.TextInputLayout>
+                android:progressTint="@color/emerald_primary"
+                android:max="100"
+                android:progress="0"/>
         </LinearLayout>
 
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
-
         <Button
-            android:id="@+id/addButton"
+            android:id="@+id/uploadButton"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:text="Add to Library"
+            android:text="Upload to Cloudinary"
             android:textSize="16sp"
             android:backgroundTint="@color/emerald_primary"
             android:textColor="@color/white"

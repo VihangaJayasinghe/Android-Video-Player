@@ -9,6 +9,9 @@ import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
 import com.example.videosystem.databinding.ActivityAddVideoBinding
 
 class AddVideoActivity : AppCompatActivity() {
@@ -16,18 +19,15 @@ class AddVideoActivity : AppCompatActivity() {
     private lateinit var binding: ActivityAddVideoBinding
     private lateinit var dbHelper: VideoDatabaseHelper
     private var selectedVideoUri: Uri? = null
+    private var isUploading = false
 
     private val pickVideoLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val uri = result.data?.data
             if (uri != null) {
                 selectedVideoUri = uri
-                
-                // Try to get file name from URI
                 val fileName = getFileName(uri)
                 binding.selectedPathTextView.text = "Selected: $fileName"
-                
-                // Auto-fill name if empty
                 if (binding.nameEditText.text.isNullOrEmpty()) {
                     binding.nameEditText.setText(fileName)
                 }
@@ -41,26 +41,30 @@ class AddVideoActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         dbHelper = VideoDatabaseHelper(this)
-
-        setupInputTypeToggle()
+        
+        initCloudinary()
 
         binding.selectFileButton.setOnClickListener {
-            openFilePicker()
+            if (!isUploading) openFilePicker()
         }
 
-        binding.addButton.setOnClickListener {
-            addVideoToDb()
+        binding.uploadButton.setOnClickListener {
+            if (!isUploading) uploadToCloudinary()
         }
     }
-
-    private fun setupInputTypeToggle() {
-        binding.sourceTypeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
-            if (checkedId == R.id.radioLocal) {
-                binding.localFileContainer.visibility = View.VISIBLE
-                binding.onlineUrlContainer.visibility = View.GONE
-            } else {
-                binding.localFileContainer.visibility = View.GONE
-                binding.onlineUrlContainer.visibility = View.VISIBLE
+    
+    private fun initCloudinary() {
+        try {
+            MediaManager.get()
+        } catch (e: Exception) {
+            try {
+                val config = HashMap<String, String>()
+                config["cloud_name"] = BuildConfig.CLOUDINARY_CLOUD_NAME
+                config["api_key"] = BuildConfig.CLOUDINARY_API_KEY
+                config["api_secret"] = BuildConfig.CLOUDINARY_API_SECRET
+                MediaManager.init(this, config)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
@@ -69,13 +73,11 @@ class AddVideoActivity : AppCompatActivity() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "video/*"
-            // Persist permission to read this file later
-            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
         }
         pickVideoLauncher.launch(intent)
     }
 
-    private fun addVideoToDb() {
+    private fun uploadToCloudinary() {
         val name = binding.nameEditText.text.toString().trim()
         
         if (name.isEmpty()) {
@@ -83,35 +85,78 @@ class AddVideoActivity : AppCompatActivity() {
             return
         }
 
-        val isLocal = binding.radioLocal.isChecked
-        var finalSource = ""
-
-        if (isLocal) {
-            if (selectedVideoUri == null) {
-                Toast.makeText(this, "Please select a video file", Toast.LENGTH_SHORT).show()
-                return
-            }
-
-            // We need to persist permissions for this URI so we can access it later after restart
-            try {
-                contentResolver.takePersistableUriPermission(
-                    selectedVideoUri!!,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            } catch (e: SecurityException) {
-                e.printStackTrace()
-            }
-            finalSource = selectedVideoUri.toString()
-        } else {
-            val url = binding.urlEditText.text.toString().trim()
-            if (url.isEmpty()) {
-                Toast.makeText(this, "Please enter a video URL", Toast.LENGTH_SHORT).show()
-                return
-            }
-            finalSource = url
+        if (selectedVideoUri == null) {
+            Toast.makeText(this, "Please select a video file", Toast.LENGTH_SHORT).show()
+            return
         }
+        
+        isUploading = true
+        binding.progressContainer.visibility = View.VISIBLE
+        binding.uploadButton.isEnabled = false
+        binding.selectFileButton.isEnabled = false
+        binding.uploadStatusText.text = "Starting upload..."
+        binding.uploadProgressBar.progress = 0
 
-        val result = dbHelper.addVideo(name, finalSource)
+        val uploadPreset = BuildConfig.CLOUDINARY_UPLOAD_PRESET
+        if (uploadPreset.isEmpty() || uploadPreset == "ml_default") {
+             Toast.makeText(this, "Warning: Using default upload preset 'ml_default'. Make sure this exists in Cloudinary.", Toast.LENGTH_LONG).show()
+        }
+        
+        MediaManager.get().upload(selectedVideoUri)
+            .unsigned(uploadPreset)
+            .option("resource_type", "video")
+            .callback(object : UploadCallback {
+                override fun onStart(requestId: String) {
+                    runOnUiThread {
+                         binding.uploadStatusText.text = "Uploading... 0%"
+                    }
+                }
+
+                override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {
+                    val progress = (bytes.toDouble() / totalBytes * 100).toInt()
+                    runOnUiThread {
+                        binding.uploadProgressBar.progress = progress
+                        binding.uploadStatusText.text = "Uploading... $progress%"
+                    }
+                }
+
+                override fun onSuccess(requestId: String, resultData: Map<*, *>) {
+                    runOnUiThread {
+                        binding.uploadStatusText.text = "Processing..."
+                        binding.uploadProgressBar.progress = 100
+                        
+                        val secureUrl = resultData["secure_url"] as String
+                        
+                        // Generate HLS URL manually (just like your Spring Boot service)
+                        val hlsUrl = generateSimpleHLSURL(secureUrl)
+                        
+                        saveVideoToDb(name, hlsUrl)
+                    }
+                }
+
+                override fun onError(requestId: String, error: ErrorInfo) {
+                    runOnUiThread {
+                        isUploading = false
+                        binding.uploadButton.isEnabled = true
+                        binding.selectFileButton.isEnabled = true
+                        binding.uploadStatusText.text = "Error: ${error.description}"
+                        Toast.makeText(this@AddVideoActivity, "Upload failed: ${error.description}", Toast.LENGTH_LONG).show()
+                    }
+                }
+
+                override fun onReschedule(requestId: String, error: ErrorInfo) {
+                }
+            })
+            .dispatch()
+    }
+
+    private fun generateSimpleHLSURL(secureUrl: String): String {
+        // Replace /upload/ with /upload/sp_auto/ and .mp4 with .m3u8
+        return secureUrl.replace("/upload/", "/upload/sp_auto/").replace(".mp4", ".m3u8")
+    }
+    
+    private fun saveVideoToDb(name: String, url: String) {
+        val result = dbHelper.addVideo(name, url)
         
         if (result != -1L) {
             Toast.makeText(this, "Video added successfully", Toast.LENGTH_SHORT).show()
@@ -120,7 +165,10 @@ class AddVideoActivity : AppCompatActivity() {
             startActivity(intent)
             finish()
         } else {
-            Toast.makeText(this, "Failed to add video", Toast.LENGTH_SHORT).show()
+            isUploading = false
+            binding.uploadButton.isEnabled = true
+            binding.selectFileButton.isEnabled = true
+            Toast.makeText(this, "Failed to save video to database", Toast.LENGTH_SHORT).show()
         }
     }
 
