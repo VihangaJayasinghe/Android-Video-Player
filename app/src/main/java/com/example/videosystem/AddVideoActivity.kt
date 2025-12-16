@@ -127,7 +127,7 @@ class AddVideoActivity : AppCompatActivity() {
                         
                         val secureUrl = resultData["secure_url"] as String
                         
-                        // Generate HLS URL manually (just like your Spring Boot service)
+                        // Generate HLS URL manually with sp_auto (just like your Spring Boot service)
                         val hlsUrl = generateSimpleHLSURL(secureUrl)
                         
                         saveVideoToDb(name, hlsUrl)
